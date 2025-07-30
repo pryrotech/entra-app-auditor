@@ -1,24 +1,22 @@
-Import-Module Microsoft.Graph
+
 
 $ascii = @"
-
   _____   __    __     ____     ______       ____     ___       ___     __    __       ____        __      _  
  / ____\ (  \  /  )   (    )   (_  __ \     / __ \   (  (       )  )    \ \  / /      (    )      /  \    / ) 
 ( (___    \ (__) /    / /\ \     ) ) \ \   / /  \ \   \  \  _  /  /     () \/ ()      / /\ \     / /\ \  / /  
  \___ \    ) __ (    ( (__) )   ( (   ) ) ( ()  () )   \  \/ \/  /      / _  _ \     ( (__) )    ) ) ) ) ) )  
      ) )  ( (  ) )    )    (     ) )  ) ) ( ()  () )    )   _   (      / / \/ \ \     )    (    ( ( ( ( ( (   
  ___/ /    ) )( (    /  /\  \   / /__/ /   \ \__/ /     \  ( )  /     /_/      \_\   /  /\  \   / /  \ \/ /   
-/____/    /_/  \_\  /__(  )__\ (______/     \____/       \_/ \_/     (/          \) /__(  )__\ (_/    \__/ 
-
+/____/    /_/  \_\  /__(  )__\ (______/     \____/       \_/ \_/     (/          \) /__(  )__\ (_/    \__/    
 "@.Split("`n") 
 
 foreach ($line in $ascii) {
-    Write-Host $line -ForegroundColor Red -BackgroundColor black
+    Write-Host $line -ForegroundColor red -BackgroundColor black
 }
 
 
 try {
-    Write-Host "Connecting to Microsoft Graph...." -ForegroundColor yellow -BackgroundColor black
+    Write-Host "`nConnecting to Microsoft Graph...." -ForegroundColor yellow -BackgroundColor black
     Connect-MgGraph -Scopes "User.Read.All", "Group.Read.All" -NoWelcome
     $getProfile = $True
 

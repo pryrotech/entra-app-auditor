@@ -118,6 +118,8 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
                 UserConsentsCount   = 0
                 ConsentingUsers     = [System.Collections.Generic.List[string]]::new() # List to collect unique users
                 DelegatedPermissions= [System.Collections.Generic.List[string]]::new() # List to collect unique permissions
+                UnverifiedPublisher = $false
+                CountryOfOrigin = [System.Collections.Generic.List[string]]::new() # List to collect countries of origin
             }
         }
 
@@ -147,6 +149,18 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
                 }
             }
         }
+
+        #Check if app is from verified publisher, or set UnverifiedPublisher to true
+        if($appEntry.VerifiedPublisher -eq $null){
+            $appEntry.UnverifiedPublisher = $true
+        }
+
+        #Get country of origin for the enterprise application based on domain
+        foreach($appEntry in $ReportEntries){
+           $WHOIS = Get-WHOIS -DomainName $appEntry.PublisherDomain -OutputFormat "detail"
+           $appEntry.CountryOfOrigin.Add($WHOIS)
+        }
+
     }
     # Ensure the progress bar completes
     Write-Progress -Activity "Processing User Consents" -Status "Complete." -PercentComplete 100 -Completed
@@ -158,6 +172,7 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
         # Convert List objects to semicolon-separated strings for CSV
         $entry.ConsentingUsers = ($entry.ConsentingUsers | Sort-Object | Select-Object -Unique) -join '; '
         $entry.DelegatedPermissions = ($entry.DelegatedPermissions | Sort-Object | Select-Object -Unique) -join '; '
+        $entry.UnverifiedPublisher = ($entry.UnverifiedPublisher)
         $FinalReport += $entry
     }
 

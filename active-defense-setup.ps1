@@ -43,13 +43,12 @@ do {
             # About & Help
             Write-Host "Active Defense is a module provided by Shadowman that scans your M365 tenant for changes in user-consented apps." -ForegroundColor Magenta
             Write-Host "You can set Active Defense to alert you with the following flags:" -ForegroundColor Magenta
-            Write-Host "`n-App with risky permissions added" -ForegroundColor Magenta
-            Write-Host "-App with unverified publisher added" -ForegroundColor Magenta
-            Write-Host "-App added has 'full_access_as_app' attribute" -ForegroundColor Magenta
-            Write-Host "-App added has high user consent count" -ForegroundColor Magenta
-            Write-Host "-App added has external tenant access" -ForegroundColor Magenta
+            Write-Host "`n-DONE: App with risky permissions added" -ForegroundColor Magenta
+            Write-Host "-DONE: App with unverified publisher added" -ForegroundColor Magenta
+            Write-Host "-DONE: App added has 'full_access_as_app' attribute" -ForegroundColor Magenta
+            #Write-Host "-App added has high user consent count" -ForegroundColor Magenta
+            #Write-Host "-App added has external tenant access" -ForegroundColor Magenta
             Write-Host "-App added originates from a certain country or region" -ForegroundColor Magenta
-            Write-Host "-App added is not account enabled, but has new consent" -ForegroundColor Magenta
             Write-Host "-App added is orphaned" -ForegroundColor Magenta
             Write-Host "-App added has consent from a high-value user" -ForegroundColor Magenta
             Write-Host "-App added has broad access to all mailboxes or calendars" -ForegroundColor Magenta

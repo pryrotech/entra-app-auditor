@@ -5,7 +5,8 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
     $RequiredGraphScopes = @(
         "Application.Read.All",
         "Directory.Read.All",
-        "DelegatedPermissionGrant.Read.All"
+        "DelegatedPermissionGrant.Read.All",
+        "AuditLog.Read.All"
     )
 
     # --- 1. Microsoft Graph Module Check, Profile Selection, and Connection ---
@@ -119,7 +120,12 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
                 ConsentingUsers     = [System.Collections.Generic.List[string]]::new() # List to collect unique users
                 DelegatedPermissions= [System.Collections.Generic.List[string]]::new() # List to collect unique permissions
                 UnverifiedPublisher = $false
+                HasRiskyConsents = $false
                 CountryOfOrigin = [System.Collections.Generic.List[string]]::new() # List to collect countries of origin
+                LastSignIn = [System.Collections.Generic.List[string]]::new()
+                FullAccessAsApp = $false
+                IsOrphaned = $false
+
             }
         }
 
@@ -150,16 +156,87 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
             }
         }
 
+        $RiskyPermissions = @(
+            "Application.ReadWrite.All", "Directory.ReadWrite.All", "Group.ReadWrite.All",
+            "User.ReadWrite.All", "Mail.ReadWrite", "Mail.ReadWrite.All",
+            "Sites.ReadWrite.All", "TeamsActivity.ReadWrite.All", "TeamSettings.ReadWrite.All",
+            "Policy.ReadWrite.ConditionalAccess", "AuditLog.Read.All",
+            "Files.ReadWrite.All", "Calendars.ReadWrite.All",
+            "offline_access" # Often a risk indicator when combined with other scopes
+        )
+
+        #Check if app has risky consents and set variable to true if valid
+        foreach ($app in $appEntry) {
+            if ($app.DelegatedPermissions | Where-Object { $RiskyPermissions -contains $_ }) {
+                $app.HasRiskyConsents = $true
+            }
+        }
+
         #Check if app is from verified publisher, or set UnverifiedPublisher to true
         if($appEntry.VerifiedPublisher -eq $null){
             $appEntry.UnverifiedPublisher = $true
         }
 
-        #Get country of origin for the enterprise application based on domain
-        foreach($appEntry in $ReportEntries){
-           $WHOIS = Get-WHOIS -DomainName $appEntry.PublisherDomain -OutputFormat "detail"
-           $appEntry.CountryOfOrigin.Add($WHOIS)
+        #Get last sign-in for each enterprise application
+        foreach ($app in $appEntry) {
+            $displayName = $app.DisplayName
+
+            $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$displayName'" -Top 1
+
+            if ($signIns.Count -gt 0) {
+                $lastSignInTime = ($signIns | Select-Object -First 1).CreatedDateTime
+
+                if (-not $app.PSObject.Properties.Match('LastSignIn')) {
+                    $app | Add-Member -MemberType NoteProperty -Name LastSignIn -Value $lastSignInTime
+                } else {
+                    $app.LastSignIn = $lastSignInTime
+                }
+            } else {
+
+                if (-not $app.PSObject.Properties.Match('LastSignIn')) {
+                    $app | Add-Member -MemberType NoteProperty -Name LastSignIn -Value $null
+                } else {
+                    $app.LastSignIn = $null
+                }
+            }
         }
+
+        #Determine if app has "full_access_as_app" permissions
+        foreach($app in $appEntry){
+            $app.RequiredResourceAccess | ForEach-Object {
+            $_.ResourceAccess | Where-Object { $_.Id -eq "dc50a0fb-09a3-484d-be87-e023b12c6440" }
+            $app.FullAccessAsApp = $true
+            }
+        }
+
+        #Get orphaned applications
+        foreach ($app in $appEntry) {
+            try {
+                # Use the correct object ID for service principal
+                $owners = Get-MgServicePrincipalOwner -ServicePrincipalId $app.Id
+
+                # Check if owners exist
+                $isOrphaned = -not $owners
+
+                # Add or update the IsOrphaned property
+                if ($app.PSObject.Properties.Match("IsOrphaned")) {
+                    $app.IsOrphaned = $isOrphaned
+                } else {
+                    $app | Add-Member -NotePropertyName IsOrphaned -NotePropertyValue $isOrphaned
+                }
+            } catch {
+                # Handle 404 or other errors gracefully
+                Write-Warning "Could not retrieve owners for app $($app.DisplayName): $($_.Exception.Message)"
+                if ($app.PSObject.Properties.Match("IsOrphaned")) {
+                    $app.IsOrphaned = $true
+                } else {
+                    $app | Add-Member -NotePropertyName IsOrphaned -NotePropertyValue $true
+                }
+            }
+        }
+
+
+        
 
     }
     # Ensure the progress bar completes

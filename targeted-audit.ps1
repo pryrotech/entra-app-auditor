@@ -1,5 +1,5 @@
 Write-Host "`n--- Targeted Risk Audit ---" -ForegroundColor Yellow
-            $reportFileName = Read-Host "Enter the full path and filename for the risk report (e.g., C:\Reports\ShadowIT_RiskAudit.csv)"
+$reportFileName = Read-Host "Enter the full path and filename for the risk report (e.g., C:\Reports\ShadowIT_RiskAudit.csv)"
 
             if (-not [string]::IsNullOrEmpty($reportFileName)) {
                 Write-Host "Configuring audit parameters:" -ForegroundColor Cyan

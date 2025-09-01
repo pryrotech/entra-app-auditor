@@ -16,7 +16,7 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
         # Check for module and install if not found
         if (-not (Get-Module -ListAvailable -Name Microsoft.Graph)) {
             Write-Warning "Microsoft.Graph PowerShell module not found. Attempting to install for CurrentUser. You may need to restart PowerShell if prompted."
-            Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -ErrorAction Stop
+            #Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -ErrorAction Stop
         }
 
         # Explicitly select the v1.0 profile
@@ -126,6 +126,9 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
                 LastSignIn = [System.Collections.Generic.List[string]]::new()
                 FullAccessAsApp = $false
                 IsOrphaned = $false
+                HighValueUser = $false
+                HasBroadMailboxAccess = $false
+                IsRiskyApp = $false
 
             }
         }
@@ -235,6 +238,79 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
                 }
             }
         }
+
+
+        foreach($user in $appEntry){
+            # Define high-risk roles
+            $highRiskRoles = @(
+                "Global Administrator",
+                "Privileged Role Administrator",
+                "Application Administrator",
+                "Cloud Application Administrator",
+                "Security Administrator",
+                "User Administrator",
+                "Exchange Administrator",
+                "SharePoint Administrator",
+                "Teams Administrator"
+            )
+
+            # Loop through each user entry
+            foreach ($user in $appEntry) {
+                # Get all directory roles matching high-risk names
+                $roles = Get-MgDirectoryRole | Where-Object { $_.DisplayName -in $highRiskRoles }
+
+                foreach ($role in $roles) {
+                    # Get members of the role
+                    $members = Get-MgDirectoryRoleMember -DirectoryRoleId $role.Id
+
+                    # Check if the current user is in the role
+                    if ($members.Id -contains $user.Id) {
+                        $app.HighValueUser = $true
+                        }
+                    }
+                }
+            }
+
+            # Define broad access delegated permissions
+            $broadAccessPerms = @(
+                "Mail.ReadWrite",
+                "Mail.ReadWrite.Shared",
+                "Calendars.ReadWrite",
+                "Calendars.ReadWrite.Shared"
+            )
+
+            # Loop through each app entry
+            foreach ($app in $appEntry) {
+                # Get delegated permission grants for the app
+                $grants = Get-MgOauth2PermissionGrant | Where-Object { $_.ClientId -eq $app.AppId }
+
+                foreach ($grant in $grants) {
+                    foreach ($perm in $broadAccessPerms) {
+                        if ($grant.Scope -match "\b$perm\b") {
+                            $app.HasBroadMailboxAccess = $true
+                        }
+                    }
+                }
+            }
+
+            foreach ($app in $appEntry) {
+                if (-not ($appEntry.DelegatedPermissions -contains $scope)) {
+                    $appEntry.DelegatedPermissions.Add($scope)
+                }
+                if ($RiskyPermissions -contains $scope) {
+                    if (-not ($appEntry.RiskyPermissionsFound -contains $scope)) {
+                        $appEntry.RiskyPermissionsFound.Add($scope)
+                        $appEntry.IsRiskyApp = $true
+                    }
+                }
+                if ($FlagFullAccessAsApp -and $scope -eq "full_access_as_app") {
+                    $appEntry.HasFullAccessAsApp = $true
+                    $appEntry.IsRiskyApp = $true
+                    }
+                }
+
+
+
 
 
         

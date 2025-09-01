@@ -48,7 +48,7 @@ do {
             Write-Host "-DONE: App added has 'full_access_as_app' attribute" -ForegroundColor Magenta
             #Write-Host "-App added has high user consent count" -ForegroundColor Magenta
             #Write-Host "-App added has external tenant access" -ForegroundColor Magenta
-            Write-Host "-App added originates from a certain country or region" -ForegroundColor Magenta
+            #Write-Host "-App added originates from a certain country or region" -ForegroundColor Magenta
             Write-Host "-App added is orphaned" -ForegroundColor Magenta
             Write-Host "-App added has consent from a high-value user" -ForegroundColor Magenta
             Write-Host "-App added has broad access to all mailboxes or calendars" -ForegroundColor Magenta

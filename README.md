@@ -45,6 +45,17 @@ Clone the repository to start using the script.
 ```bash
 git clone https://github.com/pryrotech/entra-app-auditor.git
 ```
+### Install via PowerShell
+
+```powershell
+Install-Package EntraAppAuditor -Version 1.0.1
+```
+### Install via .NET CLI
+
+```bash
+dotnet add package EntraAppAuditor --version 1.0.1
+```
+
 
 ### 2\. Run the Audit
 

@@ -1,3 +1,8 @@
+![PowerShell](https://img.shields.io/badge/PowerShell-Tool-blue)
+![License](https://img.shields.io/github/license/pryrotech/port-diagnostics-tool)
+![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)
+[![GitHub all releases](https://img.shields.io/github/downloads/pryrotech/entra-app-auditor/total.svg
+)](https://github.com/pryrotech/entra-app-auditor/releases)
 # Shadowman (entra-app-auditor)
 
 A PowerShell tool to identify and audit user-consented applications in Microsoft Entra ID (Azure AD), with a focus on uncovering "Shadow IT" and security risks.
@@ -44,18 +49,8 @@ git clone https://github.com/pryrotech/entra-app-auditor.git
 
 ### 2\. Run the Audit
 
-Open a PowerShell console and navigate to the directory where you saved the script. Execute the script with your desired parameters.
+Open the program and select from the menu the audit you wish to execute. You may also run each individually instead of using the main program if desired.
 
-```powershell
-# Set execution policy if you encounter script errors
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-
-# Run a basic audit and save the report
-.\Invoke-EntraAppAuditor.ps1 -ReportPath "C:\temp\Shadowman_Report.csv"
-
-# Run a more detailed audit, focusing only on high-risk apps and looking back 180 days
-.\Invoke-EntraAppAuditor.ps1 -ReportPath "C:\temp\HighRisk_Shadowman_Report.csv" -IncludeHighRiskOnly -DaysBackForUsage 180 -Verbose
-```
 
 On the first run, a browser window will open for you to authenticate with your M365 account and consent to the required API permissions.
 

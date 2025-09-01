@@ -46,7 +46,7 @@ try {
         Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -Confirm:$false
     }
 
-    Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All", "DelegatedPermissionGrant.Read.All" -NoWelcome
+    Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All", "DelegatedPermissionGrant.Read.All" -NoWelcome -UseDeviceAuthentication
     Write-Host "Connected successfully!                             " -ForegroundColor Black -BackgroundColor Green
     Start-Sleep -Seconds 2 # Short pause after connection success
     Clear-Host # Clear before showing the menu for the first time

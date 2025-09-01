@@ -6,7 +6,8 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
         "Application.Read.All",
         "Directory.Read.All",
         "DelegatedPermissionGrant.Read.All",
-        "AuditLog.Read.All"
+        "AuditLog.Read.All",
+        "User.Read.All"
     )
 
     # --- 1. Microsoft Graph Module Check, Profile Selection, and Connection ---
@@ -26,7 +27,7 @@ Write-Host "Starting 'Basic Audit (Full Report)'..." -ForegroundColor Cyan
         $currentContext = Get-MgContext -ErrorAction SilentlyContinue
         if ($null -eq $currentContext -or -not ($RequiredGraphScopes | ForEach-Object { $currentContext.Scopes -contains $_ } | Select-Object -First 1)) {
             Write-Host "Connecting to Microsoft Graph with required scopes ($($RequiredGraphScopes -join ', '))..." -ForegroundColor Green
-            Connect-MgGraph -Scopes $RequiredGraphScopes
+            Connect-MgGraph -Scopes $RequiredGraphScopes 
             Write-Host "Successfully connected to Microsoft Graph." -ForegroundColor Green
         } else {
             Write-Host "Already connected to Microsoft Graph with required scopes." -ForegroundColor Green

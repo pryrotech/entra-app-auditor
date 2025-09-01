@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>Shadowman</id>
+    <version>1.0.0</version>
+    <authors>pryrotech</authors>
+    <description>A PowerShell tool to audit user-consented apps in Microsoft Entra ID.</description>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/pryrotech/entra-app-auditor</projectUrl>
+    <tags>powershell security audit entra-id azure-ad</tags>
+    <readme>README.md</readme>
+  </metadata>
+  <files>
+    <file src="*.ps1" target="tools" />
+    <file src="README.md" target="" />
+  </files>
+</package>

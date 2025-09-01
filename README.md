@@ -18,7 +18,6 @@ A PowerShell tool to identify and audit user-consented applications in Microsoft
   * **Usage Analysis:** Correlates consent data with sign-in logs to differentiate between active and dormant threats.
   * **Accountability Report:** Identifies which users have consented to which applications and how many total consents exist per app.
   * **Flexible Reporting:** Exports a single, comprehensive report to a CSV file for easy filtering and analysis.
-  * **Configurable Parameters:** Allows you to define usage windows and minimum consent thresholds to customize the audit to your needs.
   * **Dependency Management:** Automatically checks for and installs the necessary Microsoft Graph PowerShell SDK modules.
 
 ## 🛠️ Prerequisites
@@ -29,6 +28,7 @@ A PowerShell tool to identify and audit user-consented applications in Microsoft
       * `Directory.Read.All`
       * `AuditLog.Read.All`
       * `DelegatedPermissionGrant.Read.All`
+      * `User.Read.All`
 
 The script will automatically prompt you to connect to Microsoft Graph and consent to these permissions on the first run.
 
@@ -36,7 +36,7 @@ The script will automatically prompt you to connect to Microsoft Graph and conse
 
 ### 1\. Download the Script
 
-Clone the repository or download the `Invoke-EntraAppAuditor.ps1` script directly.
+Clone the repository to start using the script.
 
 ```bash
 git clone https://github.com/pryrotech/entra-app-auditor.git
@@ -78,9 +78,7 @@ Open the generated CSV file in Excel or your preferred spreadsheet application. 
 | Parameter                   | Type      | Description                                                                                             | Default   |
 | --------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | --------- |
 | `-ReportPath`               | `string`  | **(Mandatory)** The full path to save the generated CSV report.                                         |           |
-| `-MinimumConsentThreshold`  | `int`     | The minimum number of unique users who have consented to an app for it to be included in the report.    | `1`       |
-| `-DaysBackForUsage`         | `int`     | The number of days to look back in sign-in logs to assess an application's usage.                       | `90`      |
-| `-IncludeHighRiskOnly`      | `switch`  | When present, the report will only include applications that have at least one high-risk permission.    | `False`   |
+
 
 ## 🤝 Contributing
 

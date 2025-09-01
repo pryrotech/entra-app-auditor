@@ -1,8 +1,7 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-Tool-blue)
 ![License](https://img.shields.io/github/license/pryrotech/port-diagnostics-tool)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)
-[![GitHub all releases](https://img.shields.io/github/downloads/pryrotech/entra-app-auditor/total.svg
-)](https://github.com/pryrotech/entra-app-auditor/releases)
+[![GitHub all releases](https://img.shields.io/github/downloads/pryrotech/entra-app-auditor/total.svg?cacheSeconds=3600)](https://github.com/pryrotech/entra-app-auditor/releases)
 # Shadowman (entra-app-auditor)
 
 A PowerShell tool to identify and audit user-consented applications in Microsoft Entra ID (Azure AD), with a focus on uncovering "Shadow IT" and security risks.

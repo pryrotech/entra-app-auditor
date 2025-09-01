@@ -1,3 +1,8 @@
+![PowerShell](https://img.shields.io/badge/PowerShell-Tool-blue)
+![License](https://img.shields.io/github/license/pryrotech/port-diagnostics-tool)
+![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)
+[![GitHub all releases](https://img.shields.io/github/downloads/pryrotech/entra-app-auditor/total.svg
+)](https://github.com/pryrotech/entra-app-auditor/releases)
 # Shadowman (entra-app-auditor)
 
 A PowerShell tool to identify and audit user-consented applications in Microsoft Entra ID (Azure AD), with a focus on uncovering "Shadow IT" and security risks.
@@ -18,7 +23,6 @@ A PowerShell tool to identify and audit user-consented applications in Microsoft
   * **Usage Analysis:** Correlates consent data with sign-in logs to differentiate between active and dormant threats.
   * **Accountability Report:** Identifies which users have consented to which applications and how many total consents exist per app.
   * **Flexible Reporting:** Exports a single, comprehensive report to a CSV file for easy filtering and analysis.
-  * **Configurable Parameters:** Allows you to define usage windows and minimum consent thresholds to customize the audit to your needs.
   * **Dependency Management:** Automatically checks for and installs the necessary Microsoft Graph PowerShell SDK modules.
 
 ## 🛠️ Prerequisites
@@ -29,6 +33,7 @@ A PowerShell tool to identify and audit user-consented applications in Microsoft
       * `Directory.Read.All`
       * `AuditLog.Read.All`
       * `DelegatedPermissionGrant.Read.All`
+      * `User.Read.All`
 
 The script will automatically prompt you to connect to Microsoft Graph and consent to these permissions on the first run.
 
@@ -36,7 +41,7 @@ The script will automatically prompt you to connect to Microsoft Graph and conse
 
 ### 1\. Download the Script
 
-Clone the repository or download the `Invoke-EntraAppAuditor.ps1` script directly.
+Clone the repository to start using the script.
 
 ```bash
 git clone https://github.com/pryrotech/entra-app-auditor.git
@@ -44,18 +49,8 @@ git clone https://github.com/pryrotech/entra-app-auditor.git
 
 ### 2\. Run the Audit
 
-Open a PowerShell console and navigate to the directory where you saved the script. Execute the script with your desired parameters.
+Open the program and select from the menu the audit you wish to execute. You may also run each individually instead of using the main program if desired.
 
-```powershell
-# Set execution policy if you encounter script errors
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-
-# Run a basic audit and save the report
-.\Invoke-EntraAppAuditor.ps1 -ReportPath "C:\temp\Shadowman_Report.csv"
-
-# Run a more detailed audit, focusing only on high-risk apps and looking back 180 days
-.\Invoke-EntraAppAuditor.ps1 -ReportPath "C:\temp\HighRisk_Shadowman_Report.csv" -IncludeHighRiskOnly -DaysBackForUsage 180 -Verbose
-```
 
 On the first run, a browser window will open for you to authenticate with your M365 account and consent to the required API permissions.
 
@@ -78,9 +73,7 @@ Open the generated CSV file in Excel or your preferred spreadsheet application. 
 | Parameter                   | Type      | Description                                                                                             | Default   |
 | --------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | --------- |
 | `-ReportPath`               | `string`  | **(Mandatory)** The full path to save the generated CSV report.                                         |           |
-| `-MinimumConsentThreshold`  | `int`     | The minimum number of unique users who have consented to an app for it to be included in the report.    | `1`       |
-| `-DaysBackForUsage`         | `int`     | The number of days to look back in sign-in logs to assess an application's usage.                       | `90`      |
-| `-IncludeHighRiskOnly`      | `switch`  | When present, the report will only include applications that have at least one high-risk permission.    | `False`   |
+
 
 ## 🤝 Contributing
 

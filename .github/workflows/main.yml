@@ -7,18 +7,26 @@ on:
 
 jobs:
   validate-package:
+    name: Validate .nupkg File
     runs-on: windows-latest
+
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Verify .nupkg exists
+    - name: Find .nupkg file
+      id: find_pkg
       run: |
-        if (!(Test-Path ".\Shadowman.nupkg")) {
-          throw "Shadowman.nupkg not found in root directory."
+        $pkg = Get-ChildItem -Path . -Filter *.nupkg
+        if (-not $pkg) {
+          throw "No .nupkg file found in repo root."
+        } else {
+          Write-Host "Found package: $($pkg.Name)"
+          echo "packagePath=$($pkg.FullName)" >> $env:GITHUB_OUTPUT
         }
 
     - name: Inspect .nupkg contents
       run: |
-        Expand-Archive -Path ".\Shadowman.nupkg" -DestinationPath ".\nupkg_contents"
+        $pkgPath = "${{ steps.find_pkg.outputs.packagePath }}"
+        Expand-Archive -Path $pkgPath -DestinationPath ".\nupkg_contents"
         Get-ChildItem ".\nupkg_contents" -Recurse

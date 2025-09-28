@@ -14,12 +14,12 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Find .nupkg file
+    - name: Find .nupkg file in nupkgs folder
       id: find_pkg
       run: |
-        $pkg = Get-ChildItem -Path . -Filter *.nupkg
+        $pkg = Get-ChildItem -Path "./nupkgs" -Filter *.nupkg
         if (-not $pkg) {
-          throw "No .nupkg file found in repo root."
+          throw "No .nupkg file found in ./nupkgs folder."
         } else {
           Write-Host "Found package: $($pkg.Name)"
           echo "packagePath=$($pkg.FullName)" >> $env:GITHUB_OUTPUT
@@ -28,5 +28,5 @@ jobs:
     - name: Inspect .nupkg contents
       run: |
         $pkgPath = "${{ steps.find_pkg.outputs.packagePath }}"
-        Expand-Archive -Path $pkgPath -DestinationPath ".\nupkg_contents"
-        Get-ChildItem ".\nupkg_contents" -Recurse
+        Expand-Archive -Path $pkgPath -DestinationPath "./nupkg_contents"
+        Get-ChildItem "./nupkg_contents" -Recurse

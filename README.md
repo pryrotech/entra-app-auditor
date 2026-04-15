@@ -91,6 +91,16 @@ Open the generated CSV file in Excel or your preferred spreadsheet application. 
 
 Contributions are welcome\! If you have suggestions for new features, bug fixes, or improvements to the documentation, please open an issue or submit a pull request.
 
+## 🤖 AI Transparency
+
+Portions of this project were developed with assistance from Generative AI tools (Microsoft Copilot and related models).
+
+All code and documentation were reviewed, tested, and validated manually before inclusion.
+
+AI outputs were treated as suggestions, not authoritative sources — every implementation was verified against official Microsoft Graph and Entra documentation.
+
+The repository maintains full human accountability for all commits and releases.
+
 ## ⚖️ License
 
 This project is licensed under the MIT License. See the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.

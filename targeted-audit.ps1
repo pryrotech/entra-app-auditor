@@ -3,6 +3,7 @@ param (
 )
 
 Write-Host "Starting Bulk Audit..." -ForegroundColor Cyan
+Write-Host "Loading available flags..." -ForegroundColor Gray
 
 # Define available flags
 $AvailableFlags = @(
@@ -19,10 +20,16 @@ $AvailableFlags = @(
     "OldestConsentDate"
 )
 
+Write-Host "Flags loaded." -ForegroundColor Green
+
 # Prompt user for flags
 Write-Host "Available flags: $($AvailableFlags -join ', ')" -ForegroundColor Yellow
 Write-Host "Enter flags to check (comma-separated), or press Enter to check all:" -ForegroundColor Cyan
-$flagInput = Read-Host "Flags"
+if ($global:IsGuiMode) {
+    $flagInput = ""
+} else {
+    $flagInput = Read-Host "Flags"
+}
 
 if ([string]::IsNullOrWhiteSpace($flagInput)) {
     $SelectedFlags = $AvailableFlags
@@ -30,20 +37,47 @@ if ([string]::IsNullOrWhiteSpace($flagInput)) {
     $SelectedFlags = $flagInput.Split(',') | ForEach-Object { $_.Trim() }
 }
 
+Write-Host "Selected flags: $($SelectedFlags -join ', ')" -ForegroundColor Cyan
+
 function IsFlagEnabled($flagName) {
     return $SelectedFlags -contains $flagName
 }
 
 # Connect to Microsoft Graph
-Connect-MgGraph -Scopes @(
-    "Application.Read.All",
-    "Directory.Read.All",
-    "DelegatedPermissionGrant.Read.All",
-    "AuditLog.Read.All",
-    "User.Read.All"
-)
+try {
+    if (-not (Get-Command Connect-MgGraph -ErrorAction SilentlyContinue)) {
+        try {
+            if (Get-Module -ListAvailable -Name Microsoft.Graph) {
+                Import-Module Microsoft.Graph -ErrorAction Stop
+            }
+            else {
+                Write-Warning "Installing Microsoft.Graph module..."
+                Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -Confirm:$false -ErrorAction Stop
+                Import-Module Microsoft.Graph -ErrorAction Stop
+            }
+        }
+        catch {
+            Write-Error "Microsoft.Graph load failed: $($_.Exception.Message)"
+            return
+        }
+    }
+
+    Write-Host "Connecting to Microsoft Graph..." -ForegroundColor Yellow
+    Connect-MgGraph -Scopes @(
+        "Application.Read.All",
+        "Directory.Read.All",
+        "DelegatedPermissionGrant.Read.All",
+        "AuditLog.Read.All",
+        "User.Read.All"
+    )
+    Write-Host "Connected successfully!" -ForegroundColor Green
+} catch {
+    Write-Error "Graph connection failed: $($_.Exception.Message)"
+    return
+}
 
 # Cache users and roles
+Write-Host "Caching users and roles..." -ForegroundColor Gray
 $UserCache = @{}
 Get-MgUser -All | ForEach-Object { $UserCache[$_.Id] = $_ }
 
@@ -63,10 +97,12 @@ foreach ($role in $roles) {
 }
 
 # Get all service principals and consents
-$ServicePrincipals = Get-MgServicePrincipal -All
+$ServicePrincipals = Get-MgServicePrincipal -All -Filter "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')"
 $UserConsents = Get-MgOauth2PermissionGrant -All | Where-Object { $_.PrincipalId -ne $null }
 
 $FinalReport = @()
+
+Write-Host "Starting bulk audit with $($SelectedFlags.Count) flags on $($ServicePrincipals.Count) applications..." -ForegroundColor Yellow
 
 foreach ($sp in $ServicePrincipals) {
     $entry = [PSCustomObject]@{
@@ -208,7 +244,15 @@ foreach ($sp in $ServicePrincipals) {
     $FinalReport += $entry
 }
 
+Write-Host "Bulk audit complete. Generating report..." -ForegroundColor Green
+
 # Export
+Write-Host "Saving bulk report to $ReportPath" -ForegroundColor Cyan
 $FinalReport | Export-Csv -Path $ReportPath -NoTypeInformation -Force
 Write-Host "Bulk audit complete. Report saved to $ReportPath" -ForegroundColor Green
 Disconnect-MgGraph
+
+# Return results for GUI mode
+if ($global:IsGuiMode) {
+    return $FinalReport
+}

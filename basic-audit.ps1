@@ -1,6 +1,11 @@
-$ReportPath = Read-Host "Enter full path to save the report"
+if ($global:IsGuiMode) {
+    $ReportPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "ShadowmanBasicAudit_$(Get-Date -f 'yyyyMMdd-HHmmss').csv")
+} else {
+    $ReportPath = Read-Host "Enter full path to save the report"
+}
 
 Write-Host "Starting Basic Audit..." -ForegroundColor Cyan
+Write-Host "Initializing audit environment..." -ForegroundColor Gray
 
 $RequiredGraphScopes = @(
     "Application.Read.All",
@@ -12,14 +17,31 @@ $RequiredGraphScopes = @(
 
 # Connect to Microsoft Graph
 try {
-    if (-not (Get-Module -ListAvailable -Name Microsoft.Graph)) {
-        Write-Warning "Installing Microsoft.Graph module..."
-        Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force
+    if (-not (Get-Command Connect-MgGraph -ErrorAction SilentlyContinue)) {
+        Write-Host "Checking for Microsoft Graph module..." -ForegroundColor Gray
+        try {
+            if (Get-Module -ListAvailable -Name Microsoft.Graph) {
+                Import-Module Microsoft.Graph -ErrorAction Stop
+            }
+            else {
+                Write-Warning "Installing Microsoft.Graph module..."
+                Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -Confirm:$false -ErrorAction Stop
+                Import-Module Microsoft.Graph -ErrorAction Stop
+            }
+        }
+        catch {
+            Write-Error "Microsoft.Graph load failed: $($_.Exception.Message)"
+            return
+        }
     }
+
+    Write-Host "Microsoft Graph module ready." -ForegroundColor Green
 
     $context = Get-MgContext -ErrorAction SilentlyContinue
     if ($null -eq $context -or -not ($RequiredGraphScopes | Where-Object { $context.Scopes -contains $_ })) {
+        Write-Host "Connecting to Microsoft Graph..." -ForegroundColor Yellow
         Connect-MgGraph -Scopes $RequiredGraphScopes
+        Write-Host "Connected successfully!" -ForegroundColor Green
     }
 } catch {
     Write-Error "Graph connection failed: $($_.Exception.Message)"
@@ -27,18 +49,22 @@ try {
 }
 
 # Cache Service Principals and Users
+Write-Host "Caching service principals (gallery apps only)..." -ForegroundColor Gray
 $ServicePrincipalCache = @{}
 $UserCache = @{}
 
-Get-MgServicePrincipal -All | ForEach-Object { $ServicePrincipalCache[$_.Id] = $_ }
+Get-MgServicePrincipal -All -Filter "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')" | ForEach-Object { $ServicePrincipalCache[$_.Id] = $_ }
+Write-Host "Caching users..." -ForegroundColor Gray
 Get-MgUser -All | ForEach-Object { $UserCache[$_.Id] = $_ }
 
 # Get user consents
+Write-Host "Retrieving user consents..." -ForegroundColor Gray
 $UserConsents = Get-MgOauth2PermissionGrant -All | Where-Object { $_.PrincipalId -ne $null }
 
 # Initialize report
 $ReportEntries = @{}
 
+Write-Host "Analyzing $($UserConsents.Count) consents..." -ForegroundColor Yellow
 foreach ($consent in $UserConsents) {
     $appId = $consent.ClientId
     $userId = $consent.PrincipalId
@@ -192,7 +218,15 @@ foreach ($entry in $ReportEntries.Values) {
     $FinalReport += $entry
 }
 
+Write-Host "Analysis complete. Generating report..." -ForegroundColor Green
+
 # Export
+Write-Host "Saving report to $ReportPath" -ForegroundColor Cyan
 $FinalReport | Export-Csv -Path $ReportPath -NoTypeInformation -Force
 Write-Host "Report saved to $ReportPath" -ForegroundColor Green
 Disconnect-MgGraph
+
+# Return results for GUI mode
+if ($global:IsGuiMode) {
+    return $FinalReport
+}

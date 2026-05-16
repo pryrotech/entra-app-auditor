@@ -1,0 +1,5 @@
+"SignalType","AppDisplayName","Finding","BypassPercentage","Details","Severity","Recommendation"
+"Weak CA Posture","","Insufficient Policies","","Less than 3 active CA policies detected","MEDIUM","Create more granular Conditional Access policies"
+"Weak CA Posture","","No MFA Enforcement","","No policies enforcing MFA","HIGH","Create CA policy requiring MFA for sensitive operations"
+"Weak CA Posture","","No Device Compliance Check","","No policies checking device compliance","HIGH","Create CA policy requiring compliant devices"
+"Weak CA Posture","","Legacy Auth Not Blocked","","No policy blocking legacy authentication","CRITICAL","Create CA policy blocking legacy authentication"

@@ -188,19 +188,25 @@ Assesses overall tenant security posture:
 
 Runs all 8 security signal audits sequentially, generating complete security report:
 - Executes all audit types
-- Generates 8 individual CSV reports
+- Generates a CSV, HTML report, and CSS stylesheet for each audit that exports results
 - Provides comprehensive security posture assessment
-- Takes 10-30 minutes depending on tenant size
+- Runtime depends on tenant size, Graph response times, permissions, and audit API availability
 
 **Output Files:**
-- `identity-risk-audit-report.csv`
-- `oauth-consent-audit-report.csv`
-- `service-principal-audit-report.csv`
-- `token-session-audit-report.csv`
-- `conditional-access-audit-report.csv`
-- `permissions-roles-audit-report.csv`
-- `usage-activity-audit-report.csv`
-- `environment-posture-audit-report.csv`
+- `identity-risk-audit-report.csv`, `.html`, and `.css`
+- `oauth-consent-audit-report.csv`, `.html`, and `.css`
+- `service-principal-audit-report.csv`, `.html`, and `.css`
+- `token-session-audit-report.csv`, `.html`, and `.css`
+- `conditional-access-audit-report.csv`, `.html`, and `.css`
+- `permissions-roles-audit-report.csv`, `.html`, and `.css`
+- `usage-activity-audit-report.csv`, `.html`, and `.css`
+- `environment-posture-audit-report.csv`, `.html`, and `.css`
+
+The GUI is available on Windows with `pwsh -NoProfile -STA -File .\entra-app-auditor-gui.ps1`. It requires Microsoft Graph modules to be installed already and uses interactive sign-in, not device-code flow. Review the live run output for authentication or Graph API errors; a report with no findings is not proof of a complete scan if errors occurred.
+
+Sign-in signal queries use a bounded window of the latest 100 records in the previous 7 days by default. Some last-sign-in checks query for the latest event separately. This limit helps avoid excessive per-app requests and means older signals may not appear in the recent-window analyses.
+
+Reports may include user identifiers, IP addresses, and security findings. Protect, retain, and share report files according to your organization's data-handling policy.
 
 ---
 
@@ -261,8 +267,8 @@ The enhanced tool requires the following Microsoft Graph scopes:
 # Run all audits and compress reports
 $reportPath = "C:\reports\security-signals-$(Get-Date -f 'yyyyMMdd')"
 mkdir $reportPath -Force
-$reports = Get-ChildItem *.csv
-Compress-Archive -Path $reports -DestinationPath "$reportPath\shadowman-report.zip"
+$reports = Get-ChildItem -Path . -Filter '*-audit-report.*' -File
+Compress-Archive -Path $reports.FullName -DestinationPath "$reportPath\shadowman-report.zip"
 ```
 
 ---

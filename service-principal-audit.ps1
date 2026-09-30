@@ -10,7 +10,7 @@ Write-Host "Starting Service Principal Activity & Credentials Audit..." -Foregro
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -19,7 +19,7 @@ if ($null -eq $context) {
         "Application.Read.All",
         "Directory.Read.All",
         "AuditLog.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 $report = @()
@@ -115,9 +115,14 @@ foreach ($sp in $servicePrincipals | Where-Object { $_.AccountEnabled -eq $true 
 if ($report.Count -eq 0) {
     Write-Host "`nNo service principal activity signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

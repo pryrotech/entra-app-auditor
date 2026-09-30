@@ -1,5 +1,48 @@
 # Security Signals Detection Module
 # Comprehensive detection functions for Entra ID security signals
+$script:GraphSignInCache = @{}
+
+function Get-GraphCollection {
+    param([Parameter(Mandatory)][string]$Uri)
+
+    $items = [System.Collections.Generic.List[object]]::new()
+    do {
+        $response = Invoke-MgGraphRequest -Method GET -Uri $Uri -ErrorAction Stop
+        foreach ($item in @($response.value)) {
+            if ($null -ne $item) {
+                $items.Add($item)
+            }
+        }
+        $Uri = $response.'@odata.nextLink'
+    } while ($Uri)
+
+    return $items.ToArray()
+}
+
+function Get-GraphSignIns {
+    param(
+        [Parameter(Mandatory)][string]$Filter,
+        [int]$Top = 100,
+        [int]$Days = 7
+    )
+
+    if ($Days -gt 0 -and $Filter -notmatch '(?i)createdDateTime\s+(gt|ge)\s+') {
+        $startDate = (Get-Date).AddDays(-$Days).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $Filter = "$Filter and createdDateTime ge $startDate"
+    }
+
+    $cacheKey = "$Filter|$Top|$Days"
+    if ($script:GraphSignInCache.ContainsKey($cacheKey)) {
+        return $script:GraphSignInCache[$cacheKey]
+    }
+
+    $encodedFilter = [System.Uri]::EscapeDataString($Filter)
+    $uri = "https://graph.microsoft.com/v1.0/auditLogs/signIns?`$filter=$encodedFilter&`$orderby=createdDateTime%20desc&`$top=$Top"
+    $response = Invoke-MgGraphRequest -Method GET -Uri $uri -ErrorAction Stop
+    $result = @($response.value)
+    $script:GraphSignInCache[$cacheKey] = $result
+    return $result
+}
 
 <#
     This module provides functions for detecting various security signals in Entra ID:
@@ -24,14 +67,16 @@ function Get-RiskySignInSignals {
         PSCustomObject with risky sign-in details
     #>
     param(
-        [string]$AppDisplayName
+        [string]$AppDisplayName,
+        [string]$AppId
     )
     
     $riskSignals = @()
     
     try {
         # Get sign-in logs for the app
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName'" -All -PageSize 999 -ErrorAction SilentlyContinue
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter $appFilter
         
         foreach ($signIn in $signIns) {
             $riskDetails = @{
@@ -83,14 +128,17 @@ function Get-UnfamiliarLocationSignIns {
     #>
     param(
         [string]$AppDisplayName,
-        [int]$Days = 30
+        [string]$AppId,
+        [int]$Days = 7
     )
     
     $unfamiliarSignIns = @()
     $startDate = (Get-Date).AddDays(-$Days)
+    $startDateFilter = $startDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName' and CreatedDateTime gt $startDate" -All -PageSize 999 -ErrorAction SilentlyContinue | 
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter "$appFilter and CreatedDateTime gt $startDateFilter" |
                    Sort-Object CreatedDateTime -Descending
         
         $uniqueLocations = $signIns | Group-Object -Property { "$($_.Location.City), $($_.Location.CountryOrRegion)" } | 
@@ -215,7 +263,7 @@ function Get-UnusedServicePrincipals {
         
         foreach ($sp in $servicePrincipals) {
             try {
-                $signIns = Get-MgAuditLogSignIn -Filter "appId eq '$($sp.AppId)'" -Top 1 -ErrorAction SilentlyContinue
+                $signIns = Get-GraphSignIns -Filter "appId eq '$($sp.AppId)'" -Top 1 -Days 0 | Select-Object -First 1
                 
                 if ($null -eq $signIns -or $signIns.CreatedDateTime -lt $inactivityThreshold) {
                     $unused += [PSCustomObject]@{
@@ -281,7 +329,7 @@ function Get-AnomalousServicePrincipalActivity {
     $anomalies = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appId eq '$AppId'" -All -PageSize 999 -ErrorAction SilentlyContinue
+        $signIns = Get-GraphSignIns -Filter "appId eq '$AppId'"
         
         $locationGroups = $signIns | Group-Object -Property { "$($_.Location.City), $($_.Location.CountryOrRegion)" }
         
@@ -450,14 +498,15 @@ function Get-SuspiciousTokenUsage {
         Detects suspicious token usage patterns
     #>
     param(
-        [string]$AppDisplayName
+        [string]$AppDisplayName,
+        [string]$AppId
     )
     
     $anomalies = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName'" -All -PageSize 999 -ErrorAction SilentlyContinue | 
-                   Where-Object { $_.AuthenticationRequirement -eq "multiFactorAuthentication" }
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter $appFilter
         
         # Check for unusual user agents
         $userAgents = $signIns | Group-Object -Property UserAgent | Where-Object { $_.Count -gt 1 }
@@ -493,7 +542,7 @@ function Get-UnusualTokenRefreshPatterns {
     $patterns = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appId eq '$AppId'" -All -PageSize 999 -ErrorAction SilentlyContinue |
+        $signIns = Get-GraphSignIns -Filter "appId eq '$AppId'" |
                    Sort-Object CreatedDateTime
         
         # Identify sessions with multiple sign-ins from same user in short timeframe
@@ -532,13 +581,15 @@ function Get-ConditionalAccessBypassIndicators {
         Detects apps bypassing Conditional Access due to legacy auth or misconfigurations
     #>
     param(
-        [string]$AppDisplayName
+        [string]$AppDisplayName,
+        [string]$AppId
     )
     
     $indicators = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName'" -All -PageSize 999 -ErrorAction SilentlyContinue |
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter $appFilter |
                    Where-Object { $_.ConditionalAccessStatus -ne "Applied" }
         
         $conversionRates = $signIns | Group-Object -Property AuthenticationProtocol | ForEach-Object {
@@ -575,13 +626,15 @@ function Get-NonCompliantDeviceAccessPatterns {
         Detects apps attempting access from non-compliant or unmanaged devices
     #>
     param(
-        [string]$AppDisplayName
+        [string]$AppDisplayName,
+        [string]$AppId
     )
     
     $patterns = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName'" -All -PageSize 999 -ErrorAction SilentlyContinue |
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter $appFilter |
                    Where-Object { $_.DeviceDetail.IsCompliant -eq $false -or $_.DeviceDetail.IsManaged -eq $false }
         
         $deviceNonCompliance = $signIns | Group-Object -Property { $_.DeviceDetail.DeviceId } | ForEach-Object {
@@ -634,11 +687,12 @@ function Get-PrivilegedRoleAssignments {
             "User Administrator"
         )
         
-        $roles = Get-MgDirectoryRole -All | Where-Object { $_.DisplayName -in $privilegedRoles }
+        $roles = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/directoryRoles' |
+            Where-Object { $_.displayName -in $privilegedRoles }
         
         foreach ($role in $roles) {
             try {
-                $members = Get-MgDirectoryRoleMember -DirectoryRoleId $role.Id -All
+                $members = Get-GraphCollection -Uri "https://graph.microsoft.com/v1.0/directoryRoles/$($role.id)/members"
                 
                 foreach ($member in $members) {
                     if ($member.AdditionalProperties["@odata.type"] -like "*servicePrincipal*") {
@@ -741,7 +795,7 @@ function Get-InactiveHighPrivilegeApps {
         
         foreach ($sp in $servicePrincipals) {
             try {
-                $signIns = Get-MgAuditLogSignIn -Filter "appId eq '$($sp.AppId)'" -Top 1 -ErrorAction SilentlyContinue
+                $signIns = Get-GraphSignIns -Filter "appId eq '$($sp.AppId)'" -Top 1 -Days 0 | Select-Object -First 1
                 
                 if ($null -eq $signIns -or $signIns.CreatedDateTime -lt $inactivityThreshold) {
                     $apps += [PSCustomObject]@{
@@ -774,13 +828,15 @@ function Get-UnusualUsageSpikes {
         Identifies apps with sudden spikes in usage indicating potential compromise
     #>
     param(
-        [string]$AppDisplayName
+        [string]$AppDisplayName,
+        [string]$AppId
     )
     
     $spikes = @()
     
     try {
-        $signIns = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$AppDisplayName'" -All -PageSize 999 -ErrorAction SilentlyContinue |
+        $appFilter = if ($AppId) { "appId eq '$AppId'" } else { "appDisplayName eq '$AppDisplayName'" }
+        $signIns = Get-GraphSignIns -Filter $appFilter |
                    Sort-Object CreatedDateTime
         
         if ($signIns.Count -gt 10) {
@@ -877,7 +933,7 @@ function Get-IdentitySecureScoreIndicators {
     $indicators = @()
     
     try {
-        $org = Get-MgOrganization -All | Select-Object -First 1
+        $org = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/organization' | Select-Object -First 1
         
         $indicators += [PSCustomObject]@{
             MetricType = "Organization Details"
@@ -886,7 +942,7 @@ function Get-IdentitySecureScoreIndicators {
         }
         
         # Check for legacy authentication policies
-        $policies = Get-MgIdentityConditionalAccessPolicy -All -ErrorAction SilentlyContinue | 
+        $policies = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies' |
                     Where-Object { $_.Conditions.ClientAppTypes -contains "exchangeActiveSync" }
         
         $indicators += [PSCustomObject]@{
@@ -897,7 +953,7 @@ function Get-IdentitySecureScoreIndicators {
         }
         
         # MFA indicators
-        $mfaPolicies = Get-MgIdentityConditionalAccessPolicy -All -ErrorAction SilentlyContinue |
+        $mfaPolicies = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies' |
                        Where-Object { $_.GrantControls.BuiltInControls -contains "mfa" }
         
         $indicators += [PSCustomObject]@{
@@ -925,10 +981,11 @@ function Get-TenantRiskyUserActivity {
     
     $riskyActivity = @()
     $startDate = (Get-Date).AddDays(-$Days)
+    $startDateFilter = $startDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     
     try {
         # Check for risky sign-in events
-        $riskySignIns = Get-MgAuditLogSignIn -Filter "CreatedDateTime gt $startDate and riskLevelAggregated ne 'none'" -All -PageSize 999 -ErrorAction SilentlyContinue
+        $riskySignIns = Get-GraphSignIns -Filter "CreatedDateTime gt $startDateFilter and riskLevelAggregated ne 'none'"
         
         $riskyByUser = $riskySignIns | Group-Object -Property UserId | ForEach-Object {
             [PSCustomObject]@{
@@ -967,7 +1024,7 @@ function Get-WeakConditionalAccessPosture {
     $weakPosture = @()
     
     try {
-        $policies = Get-MgIdentityConditionalAccessPolicy -All
+        $policies = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies'
         
         $policyAnalysis = [PSCustomObject]@{
             TotalPolicies = $policies.Count
@@ -1028,6 +1085,8 @@ function Get-WeakConditionalAccessPosture {
 
 # Export public functions
 Export-ModuleMember -Function @(
+    'Get-GraphCollection',
+    'Get-GraphSignIns',
     'Get-RiskySignInSignals',
     'Get-UnfamiliarLocationSignIns',
     'Get-RiskyConsentPatterns',

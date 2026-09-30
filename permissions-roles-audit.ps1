@@ -9,7 +9,7 @@ Write-Host "Starting Permissions & Role Signals Audit..." -ForegroundColor Cyan
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -18,7 +18,7 @@ if ($null -eq $context) {
         "Application.Read.All",
         "Directory.Read.All",
         "DelegatedPermissionGrant.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 $report = @()
@@ -40,7 +40,8 @@ foreach ($assignment in $privRoleAssignments) {
 
 # Get risky delegated permissions
 Write-Host "Analyzing risky delegated permissions..." -ForegroundColor Yellow
-$consents = Get-MgOauth2PermissionGrant -All | Where-Object { $_.PrincipalId -ne $null }
+$consents = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/oauth2PermissionGrants' |
+    Where-Object { $_.principalId -ne $null }
 $riskPerms = Get-RiskyDelegatedPermissions -ConsentGrants $consents
 foreach ($perm in $riskPerms) {
     $report += [PSCustomObject]@{
@@ -72,9 +73,14 @@ foreach ($access in $sensitiveAccess) {
 if ($report.Count -eq 0) {
     Write-Host "`nNo permission/role signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

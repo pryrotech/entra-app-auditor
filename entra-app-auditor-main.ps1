@@ -65,14 +65,20 @@ try {
         #Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force -Confirm:$false
     }
 
-    Connect-MgGraph -Scopes @(
+    $RequiredGraphScopes = @(
         "Application.Read.All",
         "Directory.Read.All",
         "DelegatedPermissionGrant.Read.All",
         "AuditLog.Read.All",
         "User.Read.All",
         "Policy.Read.All"
-    ) -NoWelcome 
+    )
+
+    $context = Get-MgContext -ErrorAction SilentlyContinue
+    $missingScopes = @($RequiredGraphScopes | Where-Object { $context.Scopes -notcontains $_ })
+    if ($null -eq $context -or $missingScopes.Count -gt 0) {
+        Connect-MgGraph -Scopes $RequiredGraphScopes -NoWelcome -ErrorAction Stop
+    }
     Write-Host "Connected successfully!                             " -ForegroundColor Black -BackgroundColor Green
     Start-Sleep -Seconds 2 # Short pause after connection success
     Clear-Host # Clear before showing the menu for the first time

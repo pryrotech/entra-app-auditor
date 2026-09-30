@@ -9,7 +9,7 @@ Write-Host "Starting Conditional Access Signals Audit..." -ForegroundColor Cyan
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -18,7 +18,7 @@ if ($null -eq $context) {
         "Application.Read.All",
         "AuditLog.Read.All",
         "Policy.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 $report = @()
@@ -32,7 +32,7 @@ foreach ($app in $apps) {
     Write-Host "Processing: $($app.DisplayName)" -ForegroundColor Gray
     
     # Check for CA bypass patterns
-    $caBypass = Get-ConditionalAccessBypassIndicators -AppDisplayName $app.DisplayName
+    $caBypass = Get-ConditionalAccessBypassIndicators -AppDisplayName $app.DisplayName -AppId $app.AppId
     foreach ($bypass in $caBypass) {
         $report += [PSCustomObject]@{
             SignalType = $bypass.SignalType
@@ -46,7 +46,7 @@ foreach ($app in $apps) {
     }
     
     # Check for non-compliant device access
-    $nonCompliancePatterns = Get-NonCompliantDeviceAccessPatterns -AppDisplayName $app.DisplayName
+    $nonCompliancePatterns = Get-NonCompliantDeviceAccessPatterns -AppDisplayName $app.DisplayName -AppId $app.AppId
     foreach ($pattern in $nonCompliancePatterns) {
         $report += [PSCustomObject]@{
             SignalType = $pattern.PatternType
@@ -78,9 +78,14 @@ foreach ($finding in $weakPosture) {
 if ($report.Count -eq 0) {
     Write-Host "`nNo Conditional Access signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

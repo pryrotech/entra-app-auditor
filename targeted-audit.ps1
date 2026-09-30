@@ -2,6 +2,9 @@ param (
     [string]$ReportPath = "$PWD\bulk-app-audit.csv"
 )
 
+$modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
+Import-Module $modulePath -Force -Global
+
 Write-Host "Starting Bulk Audit..." -ForegroundColor Cyan
 Write-Host "Loading available flags..." -ForegroundColor Gray
 
@@ -62,15 +65,20 @@ try {
         }
     }
 
-    Write-Host "Connecting to Microsoft Graph..." -ForegroundColor Yellow
-    Connect-MgGraph -Scopes @(
+    $RequiredGraphScopes = @(
         "Application.Read.All",
         "Directory.Read.All",
         "DelegatedPermissionGrant.Read.All",
         "AuditLog.Read.All",
         "User.Read.All"
     )
-    Write-Host "Connected successfully!" -ForegroundColor Green
+    $context = Get-MgContext -ErrorAction SilentlyContinue
+    $missingScopes = @($RequiredGraphScopes | Where-Object { $context.Scopes -notcontains $_ })
+    if ($null -eq $context -or $missingScopes.Count -gt 0) {
+        Write-Host "Connecting to Microsoft Graph..." -ForegroundColor Yellow
+        Connect-MgGraph -Scopes $RequiredGraphScopes -ErrorAction Stop
+        Write-Host "Connected successfully!" -ForegroundColor Green
+    }
 } catch {
     Write-Error "Graph connection failed: $($_.Exception.Message)"
     return
@@ -79,7 +87,8 @@ try {
 # Cache users and roles
 Write-Host "Caching users and roles..." -ForegroundColor Gray
 $UserCache = @{}
-Get-MgUser -All | ForEach-Object { $UserCache[$_.Id] = $_ }
+Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName' |
+    ForEach-Object { $UserCache[$_.id] = $_ }
 
 $highRiskRoles = @(
     "Global Administrator", "Privileged Role Administrator", "Application Administrator",
@@ -88,9 +97,10 @@ $highRiskRoles = @(
 )
 
 $RoleMembers = @{}
-$roles = Get-MgDirectoryRole | Where-Object { $_.DisplayName -in $highRiskRoles }
+$roles = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/directoryRoles' |
+    Where-Object { $_.displayName -in $highRiskRoles }
 foreach ($role in $roles) {
-    $members = Get-MgDirectoryRoleMember -DirectoryRoleId $role.Id
+    $members = Get-GraphCollection -Uri "https://graph.microsoft.com/v1.0/directoryRoles/$($role.id)/members"
     foreach ($member in $members) {
         $RoleMembers[$member.Id] = $true
     }
@@ -98,7 +108,8 @@ foreach ($role in $roles) {
 
 # Get all service principals and consents
 $ServicePrincipals = Get-MgServicePrincipal -All -Filter "tags/any(t:t eq 'WindowsAzureActiveDirectoryIntegratedApp')"
-$UserConsents = Get-MgOauth2PermissionGrant -All | Where-Object { $_.PrincipalId -ne $null }
+$UserConsents = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/oauth2PermissionGrants' |
+    Where-Object { $_.principalId -ne $null }
 
 $FinalReport = @()
 
@@ -207,11 +218,11 @@ foreach ($sp in $ServicePrincipals) {
     }
 
     if (IsFlagEnabled "ExternalTenant") {
-        $tenantId = (Get-MgOrganization).Id
+        $tenantId = (Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/organization' | Select-Object -First 1).id
         $entry.IsExternalTenantApp = ($sp.AppOwnerOrganizationId -ne $tenantId)
     }
 
-    $signIn = Get-MgAuditLogSignIn -Filter "appDisplayName eq '$($sp.DisplayName)'" -Top 1
+    $signIn = Get-GraphSignIns -Filter "appId eq '$($sp.AppId)'" -Top 1 -Days 0 | Select-Object -First 1
     if ($signIn) {
         $entry.LastSignInUTC.Add($signIn[0].CreatedDateTime)
     }
@@ -249,9 +260,14 @@ Write-Host "Bulk audit complete. Generating report..." -ForegroundColor Green
 # Export
 Write-Host "Saving bulk report to $ReportPath" -ForegroundColor Cyan
 $FinalReport | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-Write-Host "Bulk audit complete. Report saved to $ReportPath" -ForegroundColor Green
-Disconnect-MgGraph
 
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+
+Write-Host "Bulk audit complete. Report saved to $ReportPath" -ForegroundColor Green
 # Return results for GUI mode
 if ($global:IsGuiMode) {
     return $FinalReport

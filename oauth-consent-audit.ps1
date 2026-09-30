@@ -9,7 +9,7 @@ Write-Host "Starting OAuth & Consent Signals Audit..." -ForegroundColor Cyan
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -18,7 +18,7 @@ if ($null -eq $context) {
         "Application.Read.All",
         "Directory.Read.All",
         "DelegatedPermissionGrant.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 # Cache high-privilege users
@@ -37,12 +37,14 @@ $highRiskRoles = @(
     "Teams Administrator"
 )
 
-$roles = Get-MgDirectoryRole -All | Where-Object { $_.DisplayName -in $highRiskRoles }
+$roles = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/directoryRoles?$select=id,displayName' |
+    Where-Object { $_.displayName -in $highRiskRoles }
 foreach ($role in $roles) {
     try {
-        $members = Get-MgDirectoryRoleMember -DirectoryRoleId $role.Id -All -ErrorAction SilentlyContinue
+        $membersUri = "https://graph.microsoft.com/v1.0/directoryRoles/$($role.id)/members?`$select=id"
+        $members = Get-GraphCollection -Uri $membersUri
         foreach ($member in $members) {
-            $HighPrivilegeUsers[$member.Id] = $role.DisplayName
+            $HighPrivilegeUsers[$member.id] = $role.displayName
         }
     }
     catch {
@@ -52,7 +54,8 @@ foreach ($role in $roles) {
 
 # Get all consent grants
 Write-Host "Fetching consent grants..." -ForegroundColor Yellow
-$Consents = Get-MgOauth2PermissionGrant -All | Where-Object { $_.PrincipalId -ne $null }
+$Consents = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/oauth2PermissionGrants' |
+    Where-Object { $_.principalId -ne $null }
 
 $report = @()
 
@@ -111,9 +114,14 @@ foreach ($appGroup in $consentsByApp) {
 if ($report.Count -eq 0) {
     Write-Host "`nNo risky OAuth/consent signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

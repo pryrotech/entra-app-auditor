@@ -10,7 +10,7 @@ Write-Host "Starting Advanced Identity & Sign-In Risk Audit..." -ForegroundColor
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -19,7 +19,7 @@ if ($null -eq $context) {
         "Application.Read.All",
         "Directory.Read.All",
         "AuditLog.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 # get all apps
@@ -34,13 +34,13 @@ foreach ($app in $apps) {
     Write-Host "Processing: $($app.DisplayName)" -ForegroundColor Gray
     
     # Get risky sign-ins
-    $riskySignIns = Get-RiskySignInSignals -AppDisplayName $app.DisplayName
+    $riskySignIns = Get-RiskySignInSignals -AppDisplayName $app.DisplayName -AppId $app.AppId
     if ($riskySignIns.Count -gt 0) {
         $allRiskySignIns += $riskySignIns
     }
     
     # Get unfamiliar location sign-ins
-    $unfamiliarLocs = Get-UnfamiliarLocationSignIns -AppDisplayName $app.DisplayName
+    $unfamiliarLocs = Get-UnfamiliarLocationSignIns -AppDisplayName $app.DisplayName -AppId $app.AppId
     if ($unfamiliarLocs.Count -gt 0) {
         $allUnfamiliarLocations += $unfamiliarLocs
     }
@@ -86,9 +86,14 @@ if ($allUnfamiliarLocations.Count -gt 0) {
 if ($report.Count -eq 0) {
     Write-Host "`nNo risky sign-in signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

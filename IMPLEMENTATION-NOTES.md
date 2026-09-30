@@ -1,5 +1,7 @@
 # Security Signals Detection Module - Implementation Notes
 
+> **Current behavior note (2026-09-30):** These notes contain historical SDK-based examples. Current audit scripts import `security-signals-detection.psm1`; its exported `Get-GraphCollection` and `Get-GraphSignIns` helpers call `Invoke-MgGraphRequest` and follow paging for general collections. Sign-in queries are intentionally bounded to 100 results from the last 7 days by default; last-sign-in lookups may use `-Top 1 -Days 0`. Do not use the older `Get-MgAuditLogSignIn`, `Get-MgDirectoryRole`, or `Get-MgOauth2PermissionGrant` examples below as current command requirements. See [README.md](README.md) and [QUICK-REFERENCE.md](QUICK-REFERENCE.md) for current run, GUI, output, authentication, and data-handling guidance.
+
 ## Module Architecture
 
 The `security-signals-detection.psm1` module provides a comprehensive library of detection functions for various security signals in Entra ID. Each function is designed to:

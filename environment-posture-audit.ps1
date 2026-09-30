@@ -9,7 +9,7 @@ Write-Host "Starting Environment & Posture Signals Audit..." -ForegroundColor Cy
 
 # Import security signals module
 $modulePath = Join-Path (Split-Path $PSCommandPath) "security-signals-detection.psm1"
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -Global
 
 # Ensure Microsoft Graph connection
 $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -19,7 +19,7 @@ if ($null -eq $context) {
         "Directory.Read.All",
         "AuditLog.Read.All",
         "Policy.Read.All"
-    ) -NoWelcome
+    ) -NoWelcome -ErrorAction Stop
 }
 
 $report = @()
@@ -79,7 +79,7 @@ Write-Host "Running environment health checks..." -ForegroundColor Yellow
 
 try {
     # Check for disabled MFA policies
-    $mfaPolicies = Get-MgIdentityConditionalAccessPolicy -All -ErrorAction SilentlyContinue |
+    $mfaPolicies = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies' |
                    Where-Object { $_.GrantControls.BuiltInControls -contains "mfa" }
     
     if ($mfaPolicies.Count -eq 0) {
@@ -96,7 +96,7 @@ try {
     }
     
     # Check for legacy auth blocking
-    $legacyAuthBlock = Get-MgIdentityConditionalAccessPolicy -All -ErrorAction SilentlyContinue |
+    $legacyAuthBlock = Get-GraphCollection -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies' |
                        Where-Object { $_.Conditions.ClientAppTypes -contains "exchangeActiveSync" }
     
     if ($legacyAuthBlock.Count -eq 0) {
@@ -119,9 +119,14 @@ catch {
 if ($report.Count -eq 0) {
     Write-Host "`nNo environment/posture signals detected." -ForegroundColor Green
 } else {
-    $report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
-    Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
     Write-Host "Total signals detected: $($report.Count)" -ForegroundColor Yellow
 }
 
-Disconnect-MgGraph -ErrorAction SilentlyContinue
+$report | Export-Csv -Path $ReportPath -NoTypeInformation -Force
+try {
+    & (Join-Path (Split-Path $PSCommandPath) "generate-html-report.ps1") -CsvPath $ReportPath
+} catch {
+    Write-Warning "HTML report generation failed: $($_.Exception.Message)"
+}
+Write-Host "`nReport saved to $ReportPath" -ForegroundColor Green
+

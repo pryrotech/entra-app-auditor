@@ -1,9 +1,9 @@
-# Shadowman v2.0 - Security Signals Quick Reference
+# Shadowman - Security Signals Quick Reference
 
 ## Menu Navigation
 
 ```
-Main Menu (6 options)
+Main Menu
     │
     ├─ 1: Basic Audit
     │   └─ Historical OAuth consent audit with risky APP detection
@@ -63,12 +63,17 @@ Main Menu (6 options)
     │   └─ 9: Run All Audits
     │       └─ Execute all 8 audits sequentially
     │
-    ├─ 4: Setup Active Defense (Coming Soon)
-    │
-    ├─ 5: About & Help
-    │
-    └─ 6: Exit
+   ├─ 4: About & Help
+   └─ 5: Exit
 ```
+
+### Windows GUI
+
+```powershell
+pwsh -NoProfile -STA -File .\entra-app-auditor-gui.ps1
+```
+
+Use **Run All Audits** or choose a focused audit. The GUI shows audit output and provides a list of HTML reports to open. It does not install Graph modules or use device-code sign-in; an interactive Microsoft Graph sign-in is required when no suitable session exists.
 
 ---
 
@@ -173,16 +178,22 @@ Main Menu (6 options)
 
 ## Output Files Reference
 
+Each successful audit export produces a CSV, a matching HTML report, and a CSS stylesheet with the same base filename. Output paths are relative to the project folder unless `-ReportPath` specifies another location.
+
 | Command | Output File | Contains |
 |---------|------------|----------|
-| Identity Risk Audit | `identity-risk-audit-report.csv` | Risky sign-ins, impossible travel, unfamiliar locations |
-| OAuth Consent | `oauth-consent-audit-report.csv` | Mass consent, admin consents, permission combos |
-| Service Principal | `service-principal-audit-report.csv` | Unused SPs, credential status, expiration warnings |
-| Token & Session | `token-session-audit-report.csv` | Suspicious tokens, refresh anomalies, long sessions |
-| Conditional Access | `conditional-access-audit-report.csv` | CA bypasses, non-compliant devices, weak posture |
-| Permissions & Role | `permissions-roles-audit-report.csv` | Privileged roles, risky perms, API access |
-| Usage & Activity | `usage-activity-audit-report.csv` | Inactive apps, usage spikes, high-consent patterns |
-| Environment Posture | `environment-posture-audit-report.csv` | Secure Score gaps, user risk, CA weaknesses |
+| Identity Risk Audit | `identity-risk-audit-report.csv` | Risky sign-ins and unfamiliar locations |
+| OAuth Consent | `oauth-consent-audit-report.csv` | Mass consent, privileged consents, permission combinations |
+| Service Principal | `service-principal-audit-report.csv` | Unused principals and credential findings |
+| Token & Session | `token-session-audit-report.csv` | Token and session signals |
+| Conditional Access | `conditional-access-audit-report.csv` | CA bypass, device, and posture signals |
+| Permissions & Role | `permissions-roles-audit-report.csv` | Privileged roles, risky permissions, API access |
+| Usage & Activity | `usage-activity-audit-report.csv` | Inactivity and usage patterns |
+| Environment Posture | `environment-posture-audit-report.csv` | Tenant posture and CA findings |
+
+The Basic Audit writes `basic-audit-report.csv` when invoked with that report path; the GUI uses this name. The Targeted Risk Audit writes `bulk-app-audit.csv` by default. Each has matching HTML and CSS output.
+
+Sign-in queries are bounded to the most recent 100 records from the last 7 days by default. Last-sign-in fields query for the latest event. Empty reports should be interpreted only after confirming the audit completed without Graph/API errors.
 
 ---
 
@@ -294,6 +305,5 @@ Report: identity-risk-audit-report.csv
 
 ---
 
-**Version:** 2.0
-**Last Updated:** 2024
+**Last Updated:** 2026-09-30
 **For Help:** See SECURITY-SIGNALS-GUIDE.md for detailed documentation

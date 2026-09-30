@@ -1,5 +1,7 @@
 # Shadowman v2.0 - Implementation Summary
 
+> **Current behavior note (2026-09-30):** This document records the original security-signals implementation; some historical counts, timings, and SDK examples below are not a current guarantee. The current entry points are `entra-app-auditor-main.ps1` (console menu) and `entra-app-auditor-gui.ps1` (Windows GUI). Audits use the shared Graph REST helpers in `security-signals-detection.psm1` for endpoints whose SDK submodules may not be installed. CSV exports produce matching HTML and CSS reports. The GUI requires preinstalled Graph modules, uses interactive sign-in (not device-code flow), and runs audits in a child PowerShell process. Sign-in analysis is bounded to the latest 100 events in a 7-day window by default.
+
 ## Overview
 
 Successfully implemented comprehensive security signals detection for Entra ID/Azure AD auditing. The new features add 9 advanced signal categories with 21 detection functions across 1 core module and 8 specialized audit scripts.

@@ -23,20 +23,22 @@ A PowerShell tool to identify and audit user-consented applications in Microsoft
   * **Risk-Based Prioritization:** Flags applications with highly privileged permissions (e.g., `Mail.ReadWrite`, `Files.ReadWrite.All`) using a configurable risk model.
   * **Usage Analysis:** Correlates consent data with sign-in logs to differentiate between active and dormant threats.
   * **Accountability Report:** Identifies which users have consented to which applications and how many total consents exist per app.
-  * **Flexible Reporting:** Exports a single, comprehensive report to a CSV file for easy filtering and analysis.
-  * **Dependency Management:** Automatically checks for and installs the necessary Microsoft Graph PowerShell SDK modules.
+  * **Flexible Reporting:** Writes CSV results with a matching HTML dashboard and CSS stylesheet.
+  * **Desktop GUI:** Windows interface for running one audit or all audits, monitoring output, and opening reports.
 
 ## 🛠️ Prerequisites
 
-  * **PowerShell 5.1 or later** (PowerShell 7.x recommended for cross-platform support).
+  * **PowerShell 7.x on Windows** for the desktop GUI. Console audit scripts can also run in PowerShell 5.1 where their dependencies are available.
+  * Microsoft Graph PowerShell Authentication and Applications modules installed and available to the selected PowerShell host. The GUI does not install modules.
   * **Microsoft Entra ID/M365 administrator account** with the following Microsoft Graph API permissions:
       * `Application.Read.All`
       * `Directory.Read.All`
       * `AuditLog.Read.All`
       * `DelegatedPermissionGrant.Read.All`
       * `User.Read.All`
+      * `Policy.Read.All`
 
-The script will automatically prompt you to connect to Microsoft Graph and consent to these permissions on the first run.
+The tool prompts you to connect to Microsoft Graph when needed. The GUI runs audits in a child PowerShell process and uses interactive Microsoft Graph authentication; follow any sign-in prompt shown by the Graph SDK. Grant only the permissions required by the audits you plan to run.
 
 ## 📖 Getting Started
 
@@ -59,16 +61,31 @@ dotnet add package EntraAppAuditor --version 1.0.1
 ```
 
 
-### 2\. Run the Audit
+### 2. Run the Audit
 
-Open the program and select from the menu the audit you wish to execute. You may also run each individually instead of using the main program if desired.
+From the project folder, start the console menu:
 
+```powershell
+.\entra-app-auditor-main.ps1
+```
 
-On the first run, a browser window will open for you to authenticate with your M365 account and consent to the required API permissions.
+Choose **1** for Basic, **2** for Targeted, or **3** to open Security Signals. In that submenu, choose **9** to run all eight signal audits. You can also launch the Windows GUI:
+
+```powershell
+pwsh -NoProfile -STA -File .\entra-app-auditor-gui.ps1
+```
+
+The GUI has individual audit buttons and **Run All Audits**, displays process output, and lets you open generated HTML reports. Authentication still requires an interactive Microsoft Graph sign-in; the GUI does not use device-code flow.
 
 ### 3\. Review the Report
 
-Open the generated CSV file in Excel or your preferred spreadsheet application. The report will include columns for:
+Each audit writes a CSV file, a matching HTML dashboard, and a CSS stylesheet alongside the script (or at the specified `-ReportPath`). Reports are generated when the audit exports results, including successful runs with zero findings. To recreate an HTML report from a CSV file, run:
+
+```powershell
+pwsh -File .\generate-html-report.ps1 -CsvPath .\conditional-access-audit-report.csv
+```
+
+Open the generated HTML file in a browser, or the CSV file in a spreadsheet application. The columns depend on the audit; the Basic Audit includes fields such as:
 
   * `DisplayName`
   * `AppId`
@@ -80,11 +97,15 @@ Open the generated CSV file in Excel or your preferred spreadsheet application. 
   * `UsageStatus`
   * ...and more\!
 
+Audit sign-in analysis is limited to recent data (the shared sign-in query defaults to the latest 100 results from the last 7 days). Last-sign-in fields use a latest-event lookup. Treat results as investigation leads and confirm them in Entra ID.
+
+Reports can contain user identifiers and security findings. Store and share them according to your organization’s data-handling requirements. Generated report files are local output and can be removed after review.
+
 ## ⚙️ Parameters
 
 | Parameter                   | Type      | Description                                                                                             | Default   |
 | --------------------------- | --------- | ------------------------------------------------------------------------------------------------------- | --------- |
-| `-ReportPath`               | `string`  | **(Mandatory)** The full path to save the generated CSV report.                                         |           |
+| `-ReportPath`               | `string`  | Output CSV path; the matching HTML and CSS use the same base filename. | Audit-specific |
 
 
 ## 🤝 Contributing

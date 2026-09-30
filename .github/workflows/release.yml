@@ -1,0 +1,35 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up NuGet CLI
+        uses: NuGet/setup-nuget@v2
+
+      - name: Pack Shadowman
+        shell: pwsh
+        run: |
+          nuget pack .\Shadowman.nuspec -OutputDirectory .\nupkgs
+          $package = Get-Item .\nupkgs\pryrotech.Shadowman.2.0.0.nupkg
+          if (-not $package) {
+            throw "Expected v2.0.0 package was not produced."
+          }
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Shadowman v2.0.0
+          body_path: RELEASE-NOTES-v2.0.md
+          files: nupkgs/pryrotech.Shadowman.2.0.0.nupkg

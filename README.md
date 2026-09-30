@@ -52,12 +52,12 @@ git clone https://github.com/pryrotech/entra-app-auditor.git
 ### Install via PowerShell
 
 ```powershell
-Install-Package EntraAppAuditor -Version 1.0.1
+Install-Package pryrotech.Shadowman -Version 2.0.0
 ```
 ### Install via .NET CLI
 
 ```bash
-dotnet add package EntraAppAuditor --version 1.0.1
+dotnet add package pryrotech.Shadowman --version 2.0.0
 ```
 
 

@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/33aedceb-c3c5-4d22-ba24-c8d41e3df68b" alt="Shadowman Logo" width="230" height="200" /><br><br>
+</div>
+
 ![PowerShell](https://img.shields.io/badge/PowerShell-Tool-blue)
 ![License](https://img.shields.io/github/license/pryrotech/port-diagnostics-tool)
 ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)
